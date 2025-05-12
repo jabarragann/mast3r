@@ -6,6 +6,7 @@
 # sparse gradio demo functions
 # --------------------------------------------------------
 import math
+from pathlib import Path
 import gradio
 import os
 import numpy as np
@@ -17,12 +18,12 @@ import tempfile
 import shutil
 import torch
 
-from mast3r.cloud_opt.sparse_ga import sparse_global_alignment
+from mast3r.cloud_opt.sparse_ga import sparse_global_alignment, SparseGA
 from mast3r.cloud_opt.tsdf_optimizer import TSDFPostProcess
 from mast3r.image_pairs import make_pairs
 from mast3r.retrieval.processor import Retriever
 
-import mast3r.utils.path_to_dust3r  # noqa
+# import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.utils.image import load_images
 from dust3r.utils.device import to_numpy
 from dust3r.viz import add_scene_cam, CAM_COLORS, OPENGL, pts3d_to_trimesh, cat_meshes
@@ -32,7 +33,7 @@ import matplotlib.pyplot as pl
 
 
 class SparseGAState:
-    def __init__(self, sparse_ga, should_delete=False, cache_dir=None, outfile_name=None):
+    def __init__(self, sparse_ga: SparseGA, should_delete=False, cache_dir=None, outfile_name=None):
         self.sparse_ga = sparse_ga
         self.cache_dir = cache_dir
         self.outfile_name = outfile_name
@@ -106,12 +107,14 @@ def _convert_scene_output_to_glb(outfile, imgs, pts3d, mask, focals, cams2world,
     rot[:3, :3] = Rotation.from_euler('y', np.deg2rad(180)).as_matrix()
     scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
     if not silent:
-        print('(exporting 3D scene to', outfile, ')')
+        out_complete = Path(outfile).resolve()
+        print('(exporting 3D scene to', out_complete, ')')
+        
     scene.export(file_obj=outfile)
     return outfile
 
 
-def get_3D_model_from_scene(silent, scene_state, min_conf_thr=2, as_pointcloud=False, mask_sky=False,
+def get_3D_model_from_scene(silent, scene_state: SparseGAState, min_conf_thr=2, as_pointcloud=False, mask_sky=False,
                             clean_depth=False, transparent_cams=False, cam_size=0.05, TSDF_thresh=0):
     """
     extract 3D_model (glb file) from a reconstructed scene
@@ -147,6 +150,16 @@ def get_reconstructed_scene(outdir, gradio_delete_cache, model, retrieval_model,
     from a list of images, run mast3r inference, sparse global aligner.
     then run get_3D_model_from_scene
     """
+
+    ## Print all function arguments
+    print('get_reconstructed_scene arguments:')
+    for key, value in locals().items():
+        if key == 'kw':
+            continue
+        print(f'  {key}: {value}')
+    print('')
+    
+
     imgs = load_images(filelist, size=image_size, verbose=not silent)
     if len(imgs) == 1:
         imgs = [imgs[0], copy.deepcopy(imgs[0])]
@@ -286,7 +299,13 @@ def main_demo(tmpdirname, model, retrieval_model, device, image_size, server_nam
             with gradio.Row():
                 with gradio.Column():
                     with gradio.Row():
-                        lr1 = gradio.Slider(label="Coarse LR", value=0.07, minimum=0.01, maximum=0.2, step=0.01)
+                        lr1 = gradio.Slider(
+                            label="Coarse LR",
+                            value=0.07,
+                            minimum=0.01,
+                            maximum=0.2,
+                            step=0.01,
+                        )
                         niter1 = gradio.Slider(value=300, minimum=0, maximum=1000, step=1,
                                                label="Iterations", info="For coarse alignment")
                         lr2 = gradio.Slider(label="Fine LR", value=0.01, minimum=0.005, maximum=0.05, step=0.001)

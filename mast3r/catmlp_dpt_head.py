@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import mast3r.utils.path_to_dust3r  # noqa
+# import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.heads.postprocess import reg_dense_depth, reg_dense_conf  # noqa
 from dust3r.heads.dpt_head import PixelwiseTaskWithDPT  # noqa
 import dust3r.utils.path_to_croco  # noqa

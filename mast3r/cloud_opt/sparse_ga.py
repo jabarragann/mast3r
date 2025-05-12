@@ -22,7 +22,7 @@ from mast3r.cloud_opt.utils.losses import gamma_loss
 from mast3r.cloud_opt.utils.schedules import linear_schedule, cosine_schedule
 from mast3r.fast_nn import fast_reciprocal_NNs, merge_corres
 
-import mast3r.utils.path_to_dust3r  # noqa
+# import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.utils.geometry import inv, geotrf  # noqa
 from dust3r.utils.device import to_cpu, to_numpy, todevice  # noqa
 from dust3r.post_process import estimate_focal_knowing_depth  # noqa

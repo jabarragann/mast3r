@@ -11,7 +11,7 @@ import time
 import torch
 import torch.nn as nn
 
-import mast3r.utils.path_to_dust3r  # noqa
+# import mast3r.utils.path_to_dust3r  # noqa
 from dust3r.utils.image import load_images
 
 default_device = torch.device('cuda' if torch.cuda.is_available() and torch.cuda.device_count() > 0 else 'cpu')
