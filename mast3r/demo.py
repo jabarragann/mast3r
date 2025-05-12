@@ -7,6 +7,7 @@
 # --------------------------------------------------------
 import math
 from pathlib import Path
+import pickle
 import gradio
 import os
 import numpy as np
@@ -215,6 +216,13 @@ def get_reconstructed_scene(outdir, gradio_delete_cache, model, retrieval_model,
         outfile_name = tempfile.mktemp(suffix='_scene.glb', dir=outdir)
 
     scene_state = SparseGAState(scene, gradio_delete_cache, cache_dir, outfile_name)
+
+    # pickle scene for futher anaylsis
+    pickle_file = os.path.join(outdir, "scene_state.pkl")
+    with open(pickle_file, "wb") as f:
+        pickle.dump(scene_state, f)
+    print(f"Scene state has been pickled to {pickle_file}")
+
     outfile = get_3D_model_from_scene(silent, scene_state, min_conf_thr, as_pointcloud, mask_sky,
                                       clean_depth, transparent_cams, cam_size, TSDF_thresh)
     return scene_state, outfile

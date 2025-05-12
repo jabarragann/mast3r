@@ -117,7 +117,7 @@ def convert_dust3r_pairs_naming(imgs, pairs_in):
 
 
 def sparse_global_alignment(imgs, pairs_in, cache_path, model, subsample=8, desc_conf='desc_conf',
-                            kinematic_mode='hclust-ward', device='cuda', dtype=torch.float32, shared_intrinsics=False, **kw):
+                            kinematic_mode='hclust-ward', device='cuda', dtype=torch.float32, shared_intrinsics=False, **kw)->SparseGA:
     """ Sparse alignment with MASt3R
         imgs: list of image paths
         cache_path: path where to dump temporary files (str)
