@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 
+import cv2
 import numpy as np
 import trimesh
 from scipy.spatial.transform import Rotation
@@ -22,21 +23,22 @@ OPENGL = np.array(
     ]
 )
 
-def save_pc_with_open3d(outfile: Path, pts: np.ndarray, colors: np.ndarray):
 
+def save_pc_with_open3d(outfile: Path, pts: np.ndarray, colors: np.ndarray):
     valid_msk = np.isfinite(pts.sum(axis=1))
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(pts[valid_msk])
-    pcd.colors = o3d.utility.Vector3dVector(colors[valid_msk])  
+    pcd.colors = o3d.utility.Vector3dVector(colors[valid_msk])
     # Save the point cloud to a file
     o3d.io.write_point_cloud(str(outfile), pcd)
 
+
 def save_img(outfile: Path, img: np.ndarray):
     if img.dtype != np.uint8:
-        img = (img * 255).astype(np.uint8)  
+        img = (img * 255).astype(np.uint8)
 
     imageio.v2.imwrite(str(outfile), img)
-    
+
 
 def save_pc(
     outfile,
@@ -45,6 +47,7 @@ def save_pc(
     mask,
     focals,
     cams2world,
+    labels: np.ndarray,
 ):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
     pts3d = to_numpy(pts3d)
@@ -54,19 +57,37 @@ def save_pc(
 
     all_pts = []
     all_col = []
+    all_labels = []
     for i in range(len(imgs)):
         pi = pts3d[i]
         mi = mask[i]
         ci = imgs[i]
 
+        # Label processing
+        li = labels[i]
+        li = cv2.resize(
+            li, (imgs[i].shape[1], imgs[i].shape[0]), interpolation=cv2.INTER_NEAREST
+        )
+        li_binary = cv2.cvtColor(li, cv2.COLOR_RGB2GRAY)
+        _, li_binary = cv2.threshold(li_binary, 0.1, 1.0, cv2.THRESH_BINARY)
+        li_binary = li_binary.astype(bool)
+
         all_pts.append(pi[mi.ravel()].reshape(-1, 3))
         all_col.append(ci[mi].reshape(-1, 3))
+        all_labels.append(li_binary[mi].reshape(-1, 1))
 
         # save intermediate point clouds
         outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}.ply")
         save_pc_with_open3d(outfile_i, all_pts[-1], all_col[-1])
+
         outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}.png")
         save_img(outfile_i, imgs[i])
+
+        outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}_label.png")
+        alpha = 0.5
+        beta = 1.0 - alpha
+        img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
+        save_img(outfile_i, img_mask)
 
     ## Origianl implementation
     # pts = np.concatenate([p[m.ravel()] for p, m in zip(pts3d, mask)]).reshape(-1, 3)
@@ -75,14 +96,20 @@ def save_pc(
 
     pts = np.concatenate(all_pts, axis=0)
     col = np.concatenate(all_col, axis=0)
+    labels = np.concatenate(all_labels, axis=0)
 
     save_pc_with_open3d(outfile, pts, col)
+
+    # Filter points with label
+    liver_pts = pts[labels.ravel()]
+    liver_col = col[labels.ravel()]
+    save_pc_with_open3d(outfile.with_name("liver.ply"), liver_pts, liver_col)
 
     # Open3D
     # valid_msk = np.isfinite(pts.sum(axis=1))
     # pcd = o3d.geometry.PointCloud()
     # pcd.points = o3d.utility.Vector3dVector(pts[valid_msk])
-    # pcd.colors = o3d.utility.Vector3dVector(col[valid_msk])  
+    # pcd.colors = o3d.utility.Vector3dVector(col[valid_msk])
     # # Save the point cloud to a file
     # o3d.io.write_point_cloud(str(outfile), pcd)
 
@@ -99,6 +126,23 @@ def save_pc(
     return outfile
 
 
+def load_labels() -> np.ndarray:
+    labels_path = Path(
+        "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/labels"
+    )
+
+    labels = sorted(labels_path.glob("*.png"))
+
+    all_labels = []
+    for i, label in enumerate(labels):
+        img = imageio.v2.imread(label)
+        img = np.expand_dims(img, axis=0).astype(np.float32) / 255.0
+        all_labels.append(img)
+
+    all_labels = np.concatenate(all_labels, axis=0)
+    return all_labels
+
+
 # Parameters
 clean_depth = False
 min_conf_thr = 1.5
@@ -113,6 +157,7 @@ def main():
     rgbimg = scene.imgs
     focals = scene.get_focals().cpu()
     cams2world = scene.get_im_poses().cpu()
+    labels = load_labels()
 
     pts3d, _, confs = to_numpy(scene.get_dense_pts3d(clean_depth=clean_depth))
 
@@ -120,7 +165,7 @@ def main():
 
     outfile = Path("./juan_out/pc/juan_pc.ply")
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    outfile = save_pc(outfile, rgbimg, pts3d, msk, focals, cams2world)
+    outfile = save_pc(outfile, rgbimg, pts3d, msk, focals, cams2world, labels)
 
     print("finished")
 
