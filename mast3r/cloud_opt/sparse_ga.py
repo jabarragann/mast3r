@@ -4,6 +4,7 @@
 # --------------------------------------------------------
 # MASt3R Sparse Global Alignement
 # --------------------------------------------------------
+from pathlib import Path
 from tqdm import tqdm
 import roma
 import torch
@@ -67,6 +68,18 @@ class SparseGA():
 
     def get_sparse_pts3d(self):
         return self.pts3d
+    
+    def modify_root_path_of_canon(self, new_root: Path):
+
+        assert self.canonical_paths, 'cache_path is required for dense 3d points'
+        new_paths_list = []
+        for i, canon_path in enumerate(self.canonical_paths):
+            original_path = Path(canon_path)
+            new_path = new_root.joinpath(*original_path.parts[1:])
+            new_paths_list.append(str(new_path)) 
+        
+        self.canonical_paths = new_paths_list 
+
 
     def get_dense_pts3d(self, clean_depth=True, subsample=8):
         assert self.canonical_paths, 'cache_path is required for dense 3d points'

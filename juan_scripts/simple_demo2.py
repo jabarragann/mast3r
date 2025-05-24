@@ -8,12 +8,18 @@ from mast3r.model import AsymmetricMASt3R
 
 def main():
     weights_path = "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanDocuments/Mast3r_checkpoints/checkpoints/MASt3R_ViTLarge_BaseDecoder_512_catmlpdpt_metric.pth"
+    # img_path = Path(
+    #     "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/img_subset"
+    # )
+
     img_path = Path(
-        "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/img_subset"
+        "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/clip06_frames"
     )
     outdir = Path("./juan_out")
     img_list = list(map(str, sorted(img_path.glob("*.png"))))
 
+    img_list = img_list[::4]
+ 
     # Parameters
     optim_level = "refine+depth"
     lr1 = 0.07
@@ -27,8 +33,8 @@ def main():
     clean_depth = True
     transparent_cams = False
     cam_size = 0.2
-    scenegraph_type = "complete"
-    winsize = 1
+    scenegraph_type = "swin" #"complete"
+    winsize = 8 
     win_cyclic = False
     refid = 0
     TSDF_thresh = 0

@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -47,7 +48,8 @@ def save_pc(
     mask,
     focals,
     cams2world,
-    labels: np.ndarray,
+    labels: Optional[np.ndarray] = None,
+    save_intermediate_pc: bool = False,
 ):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
     pts3d = to_numpy(pts3d)
@@ -64,30 +66,41 @@ def save_pc(
         ci = imgs[i]
 
         # Label processing
-        li = labels[i]
-        li = cv2.resize(
-            li, (imgs[i].shape[1], imgs[i].shape[0]), interpolation=cv2.INTER_NEAREST
-        )
-        li_binary = cv2.cvtColor(li, cv2.COLOR_RGB2GRAY)
-        _, li_binary = cv2.threshold(li_binary, 0.1, 1.0, cv2.THRESH_BINARY)
-        li_binary = li_binary.astype(bool)
+        if labels is not None:
+            li = labels[i]
+            li = cv2.resize(
+                li,
+                (imgs[i].shape[1], imgs[i].shape[0]),
+                interpolation=cv2.INTER_NEAREST,
+            )
+            li_binary = cv2.cvtColor(li, cv2.COLOR_RGB2GRAY)
+            _, li_binary = cv2.threshold(li_binary, 0.1, 1.0, cv2.THRESH_BINARY)
+            li_binary = li_binary.astype(bool)
+
+            all_labels.append(li_binary[mi].reshape(-1, 1))
 
         all_pts.append(pi[mi.ravel()].reshape(-1, 3))
         all_col.append(ci[mi].reshape(-1, 3))
-        all_labels.append(li_binary[mi].reshape(-1, 1))
 
         # save intermediate point clouds
-        outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}.ply")
-        save_pc_with_open3d(outfile_i, all_pts[-1], all_col[-1])
+        if save_intermediate_pc:
+            path_frame_pc = outfile.parent / "frame_pc_vis"
+            path_frame_pc.mkdir(exist_ok=True)
 
-        outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}.png")
-        save_img(outfile_i, imgs[i])
+            outfile_i = path_frame_pc / f"{outfile.stem}_{i:03d}.ply"
+            save_pc_with_open3d(outfile_i, all_pts[-1], all_col[-1])
 
-        outfile_i = outfile.with_name(f"{outfile.stem}_{i:03d}_label.png")
-        alpha = 0.5
-        beta = 1.0 - alpha
-        img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
-        save_img(outfile_i, img_mask)
+            outfile_i = path_frame_pc / f"{outfile.stem}_{i:03d}.png"
+            save_img(outfile_i, imgs[i])
+
+        # save label image blend
+        if labels is not None:
+            path_label_vis = outfile.parent / "label_vis"
+            outfile_i = path_label_vis / f"{outfile.stem}_{i:03d}_label.png"
+            alpha = 0.5
+            beta = 1.0 - alpha
+            img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
+            save_img(outfile_i, img_mask)
 
     ## Origianl implementation
     # pts = np.concatenate([p[m.ravel()] for p, m in zip(pts3d, mask)]).reshape(-1, 3)
@@ -96,14 +109,17 @@ def save_pc(
 
     pts = np.concatenate(all_pts, axis=0)
     col = np.concatenate(all_col, axis=0)
-    labels = np.concatenate(all_labels, axis=0)
 
     save_pc_with_open3d(outfile, pts, col)
 
     # Filter points with label
-    liver_pts = pts[labels.ravel()]
-    liver_col = col[labels.ravel()]
-    save_pc_with_open3d(outfile.with_name("liver.ply"), liver_pts, liver_col)
+    if labels is not None:
+        labels = np.concatenate(all_labels, axis=0)
+        liver_pts = pts[labels.ravel()]
+        liver_col = col[labels.ravel()]
+        save_pc_with_open3d(
+            outfile.with_name("liver_intraoperative.ply"), liver_pts, liver_col
+        )
 
     # Open3D
     # valid_msk = np.isfinite(pts.sum(axis=1))
@@ -127,8 +143,11 @@ def save_pc(
 
 
 def load_labels() -> np.ndarray:
+    # labels_path = Path(
+    #     "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/labels"
+    # )
     labels_path = Path(
-        "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/labels"
+        "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/mast3r_clip06/labels"
     )
 
     labels = sorted(labels_path.glob("*.png"))
@@ -150,22 +169,26 @@ min_conf_thr = 1.5
 
 def main():
     # Load scene state
-    with open("./juan_out/scene_state.pkl", "rb") as f:
+    data_dir = Path("./juan_out/clip06")
+
+    with open(data_dir / "scene_state.pkl", "rb") as f:
         scene_state = pickle.load(f)
 
     scene: SparseGA = scene_state.sparse_ga
+    scene.modify_root_path_of_canon(data_dir)
     rgbimg = scene.imgs
     focals = scene.get_focals().cpu()
     cams2world = scene.get_im_poses().cpu()
+
+    labels = None
     labels = load_labels()
 
     pts3d, _, confs = to_numpy(scene.get_dense_pts3d(clean_depth=clean_depth))
-
     msk = to_numpy([c > min_conf_thr for c in confs])
 
-    outfile = Path("./juan_out/pc/juan_pc.ply")
+    outfile = data_dir / "pc/full_reconstruction.ply"
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    outfile = save_pc(outfile, rgbimg, pts3d, msk, focals, cams2world, labels)
+    outfile = save_pc(outfile, rgbimg, pts3d, msk, focals, cams2world, labels, save_intermediate_pc=True)
 
     print("finished")
 
