@@ -1,7 +1,7 @@
 import json
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -12,7 +12,7 @@ import imageio.v2
 
 sys.path.append(str(Path(__file__).resolve().parent / ".."))
 import pickle
-from utils import save_pc_with_open3d
+from utils import save_pc_with_open3d, float32_arr, uint8_arr, bool_arr
 from mast3r.cloud_opt.sparse_ga import SparseGA
 from dust3r.utils.device import to_numpy
 import open3d as o3d
@@ -36,13 +36,14 @@ def save_img(outfile: Path, img: np.ndarray):
 
 
 def save_pc(
-    outfile,
+    outfile: Path,
     imgs,
     pts3d,
     mask,
     focals,
     cams2world,
     labels: Optional[np.ndarray] = None,
+    labels_binary: Optional[np.ndarray] = None,
     save_intermediate_pc: bool = False,
 ):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
@@ -59,18 +60,9 @@ def save_pc(
         mi = mask[i]
         ci = imgs[i]
 
-        # Label processing
-        if labels is not None:
+        if labels is not None and labels_binary is not None:
             li = labels[i]
-            li = cv2.resize(
-                li,
-                (imgs[i].shape[1], imgs[i].shape[0]),
-                interpolation=cv2.INTER_NEAREST,
-            )
-            li_binary = cv2.cvtColor(li, cv2.COLOR_RGB2GRAY)
-            _, li_binary = cv2.threshold(li_binary, 0.1, 1.0, cv2.THRESH_BINARY)
-            li_binary = li_binary.astype(bool)
-
+            li_binary = labels_binary[i]
             all_labels.append(li_binary[mi].reshape(-1, 1))
 
         all_pts.append(pi[mi.ravel()].reshape(-1, 3))
@@ -95,6 +87,14 @@ def save_pc(
             beta = 1.0 - alpha
             img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
             save_img(outfile_i, img_mask)
+
+        # save sample image points
+        sampled_img = np.zeros_like(imgs[i])
+        sampled_img[mi] = imgs[i][mi]
+        outfile_i = outfile.parent / "sample_vis"
+        outfile_i.mkdir(exist_ok=True)
+        outfile_i = outfile_i / f"{outfile.stem}_{i:03d}_sampled.png"
+        save_img(outfile_i, sampled_img)
 
     ## Original implementation
     # pts = np.concatenate([p[m.ravel()] for p, m in zip(pts3d, mask)]).reshape(-1, 3)
@@ -136,7 +136,7 @@ def save_pc(
     return outfile
 
 
-def load_labels() -> np.ndarray:
+def load_labels(width: int, height: int) -> Tuple[float32_arr, bool_arr]:
     # labels_path = Path(
     #     "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/labels"
     # )
@@ -147,13 +147,41 @@ def load_labels() -> np.ndarray:
     labels = sorted(labels_path.glob("*.png"))
 
     all_labels = []
+    all_labels_binary = []
     for i, label in enumerate(labels):
-        img = imageio.v2.imread(label)
-        img = np.expand_dims(img, axis=0).astype(np.float32) / 255.0
-        all_labels.append(img)
+        img: uint8_arr = imageio.v2.imread(label)
+
+        resized_label, label_binary = process_labels(img, width, height)
+
+        resized_label = np.expand_dims(resized_label, axis=0)
+        label_binary = np.expand_dims(label_binary, axis=0)
+        all_labels.append(resized_label)
+        all_labels_binary.append(label_binary)
 
     all_labels = np.concatenate(all_labels, axis=0)
-    return all_labels
+    all_labels_binary = np.concatenate(all_labels_binary, axis=0)
+
+    return all_labels, all_labels_binary
+
+
+def process_labels(
+    label: uint8_arr, width: int, height: int
+) -> Tuple[float32_arr, bool_arr]:
+    label_resized = np.asarray(
+        cv2.resize(
+            label,
+            (width, height),
+            interpolation=cv2.INTER_NEAREST,
+        ),
+        dtype=np.float32,
+    )
+    label_resized /= 255.0  # Normalize to [0, 1]
+
+    _label_binary = cv2.cvtColor(label_resized, cv2.COLOR_RGB2GRAY)
+    _, _label_binary = cv2.threshold(_label_binary, 0.1, 1.0, cv2.THRESH_BINARY)
+    label_binary = _label_binary.astype(bool)
+
+    return label_resized, label_binary
 
 
 # Parameters
@@ -170,7 +198,7 @@ def main():
 
     scene: SparseGA = scene_state.sparse_ga
     scene.modify_root_path_of_canon(data_dir)
-    rgbimg = scene.imgs
+    rgbimg: List[float32_arr] = scene.imgs
     focals = scene.get_focals().cpu()
     cams2world = scene.get_im_poses().cpu()
 
@@ -179,8 +207,10 @@ def main():
     with data_dir.joinpath("intrinsics.json").open("w") as f:
         json.dump({"intrinsics": K[0].tolist()}, f, indent=4)
 
+    width = rgbimg[0].shape[1]
+    height = rgbimg[0].shape[0]
     labels = None
-    labels = load_labels()
+    labels, labels_binary = load_labels(width=width, height=height)
 
     pts3d, _, confs = to_numpy(scene.get_dense_pts3d(clean_depth=clean_depth))
     msk = to_numpy([c > min_conf_thr for c in confs])
@@ -195,6 +225,7 @@ def main():
         focals,
         cams2world,
         labels,
+        labels_binary,
         save_intermediate_pc=False,
     )
 

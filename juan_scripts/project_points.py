@@ -19,7 +19,7 @@ def project_points_3d(
     return points_3d.T
 
 
-def project_points(points_3d: float32_arr, K: float32_arr) -> float32_arr:
+def project_points_2d(points_3d: float32_arr, K: float32_arr) -> float32_arr:
     """
     points_3d: Nx3 array of 3D points in camera coordinates.
     K: 3x3 intrinsic camera matrix.
@@ -68,7 +68,7 @@ def main():
     colors_float = np.asarray(pc_o3d.colors, dtype=np.float32)
     colors_uint8 = (colors_float * 255).astype(np.uint8)
 
-    points_2d = project_points(points_3d, K)
+    points_2d = project_points_2d(points_3d, K)
     rgb_from_pc = create_img_from_projected_pc(points_2d, colors_uint8, rgb_img.shape)
 
     points_3d_from_2d = project_points_3d(points_2d, points_3d[:, 2], K)

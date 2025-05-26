@@ -7,6 +7,7 @@ from typing import TypeAlias
 # Stubs
 float32_arr: TypeAlias = npt.NDArray[np.float32]
 uint8_arr: TypeAlias = npt.NDArray[np.uint8]
+bool_arr: TypeAlias = npt.NDArray[np.bool_]
 
 def save_pc_with_open3d(outfile: Path, pts: float32_arr, colors: float32_arr):
     valid_msk = np.isfinite(pts.sum(axis=1))
