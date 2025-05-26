@@ -1,0 +1,12 @@
+[project]
+name = "mast3r"
+version = "0.0.0"
+authors = [
+    {name = "Juan Antonio Barragan", email = "jbarrag3@jh.edu"}
+]
+description = ""
+readme = "README.md"
+
+[tool.mypy]
+plugins = ["numpy.typing.mypy_plugin"]
+

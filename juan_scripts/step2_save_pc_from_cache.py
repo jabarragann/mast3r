@@ -55,9 +55,10 @@ def save_pc(
     focals_np: float32_arr = to_numpy(focals)
     cams2world_np: float32_arr = to_numpy(cams2world)
 
-    all_pts = []
-    all_col = []
-    all_labels = []
+    all_pts: List[float32_arr] = []
+    all_col: List[float32_arr] = []
+    all_labels:List[bool_arr] = []
+
     for i in range(len(imgs_np)):
         pi = pts3d_np[i]
         mi = mask[i]
@@ -151,11 +152,11 @@ def load_labels(width: int, height: int) -> Tuple[float32_arr, bool_arr]:
         "/media/juan95/b0ad3209-9fa7-42e8-a070-b02947a78943/home/camma/JuanData/OvarianCancerDataset/video_16052/mast3r/mast3r_clip06/labels"
     )
 
-    labels = sorted(labels_path.glob("*.png"))
+    labels_paths = sorted(labels_path.glob("*.png"))
 
-    all_labels = []
-    all_labels_binary = []
-    for i, label in enumerate(labels):
+    all_labels: List[float32_arr] = []
+    all_labels_binary: List[bool_arr] = []
+    for i, label in enumerate(labels_paths):
         img: uint8_arr = imageio.v2.imread(label)
 
         resized_label, label_binary = process_labels(img, width, height)
@@ -165,10 +166,10 @@ def load_labels(width: int, height: int) -> Tuple[float32_arr, bool_arr]:
         all_labels.append(resized_label)
         all_labels_binary.append(label_binary)
 
-    all_labels = np.concatenate(all_labels, axis=0)
-    all_labels_binary = np.concatenate(all_labels_binary, axis=0)
+    labels = np.concatenate(all_labels, axis=0)
+    labels_binary = np.concatenate(all_labels_binary, axis=0)
 
-    return all_labels, all_labels_binary
+    return labels, labels_binary
 
 
 def process_labels(
@@ -205,7 +206,7 @@ def main():
 
     scene: SparseGA = scene_state.sparse_ga
     scene.modify_root_path_of_canon(data_dir)
-    rgbimg: List[float32_arr] = scene.imgs
+    rgbimg: List[float32_arr] = scene.imgs # type: ignore
     focals: Tensor = scene.get_focals().cpu()
     cams2world: Tensor = scene.get_im_poses().cpu()
 
