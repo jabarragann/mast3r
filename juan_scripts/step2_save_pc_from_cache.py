@@ -6,6 +6,8 @@ from typing import List, Optional, Tuple
 import cv2
 import numpy as np
 import numpy.typing as npt
+import torch
+from torch import Tensor
 import trimesh
 from scipy.spatial.transform import Rotation
 import imageio.v2
@@ -37,28 +39,29 @@ def save_img(outfile: Path, img: np.ndarray):
 
 def save_pc(
     outfile: Path,
-    imgs,
-    pts3d,
-    mask,
-    focals,
-    cams2world,
+    imgs: List[float32_arr],
+    pts3d: List[Tensor],
+    mask: npt.NDArray,
+    focals: Tensor,
+    cams2world: Tensor,
     labels: Optional[np.ndarray] = None,
     labels_binary: Optional[np.ndarray] = None,
     save_intermediate_pc: bool = False,
 ):
     assert len(pts3d) == len(mask) <= len(imgs) <= len(cams2world) == len(focals)
-    pts3d = to_numpy(pts3d)
-    imgs = to_numpy(imgs)
-    focals = to_numpy(focals)
-    cams2world = to_numpy(cams2world)
+
+    pts3d_np: float32_arr = to_numpy(pts3d)
+    imgs_np: float32_arr = to_numpy(imgs)
+    focals_np: float32_arr = to_numpy(focals)
+    cams2world_np: float32_arr = to_numpy(cams2world)
 
     all_pts = []
     all_col = []
     all_labels = []
-    for i in range(len(imgs)):
-        pi = pts3d[i]
+    for i in range(len(imgs_np)):
+        pi = pts3d_np[i]
         mi = mask[i]
-        ci = imgs[i]
+        ci = imgs_np[i]
 
         if labels is not None and labels_binary is not None:
             li = labels[i]
@@ -73,11 +76,15 @@ def save_pc(
             path_frame_pc = outfile.parent / "frame_pc_vis"
             path_frame_pc.mkdir(exist_ok=True)
 
+            # Return pc to camera frame
+            T = np.linalg.inv(cams2world_np[i])
+            pts_in_cam = (T[:3, :3] @ all_pts[-1].T + T[:3, 3:]).T
+
             outfile_i = path_frame_pc / f"{outfile.stem}_{i:03d}.ply"
-            save_pc_with_open3d(outfile_i, all_pts[-1], all_col[-1])
+            save_pc_with_open3d(outfile_i, pts_in_cam, all_col[-1])
 
             outfile_i = path_frame_pc / f"{outfile.stem}_{i:03d}.png"
-            save_img(outfile_i, imgs[i])
+            save_img(outfile_i, imgs_np[i])
 
         # save label image blend
         if labels is not None:
@@ -85,12 +92,12 @@ def save_pc(
             outfile_i = path_label_vis / f"{outfile.stem}_{i:03d}_label.png"
             alpha = 0.5
             beta = 1.0 - alpha
-            img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
+            img_mask = cv2.addWeighted(imgs_np[i], alpha, li, beta, 0)
             save_img(outfile_i, img_mask)
 
         # save sample image points
-        sampled_img = np.zeros_like(imgs[i])
-        sampled_img[mi] = imgs[i][mi]
+        sampled_img = np.zeros_like(imgs_np[i])
+        sampled_img[mi] = imgs_np[i][mi]
         outfile_i = outfile.parent / "sample_vis"
         outfile_i.mkdir(exist_ok=True)
         outfile_i = outfile_i / f"{outfile.stem}_{i:03d}_sampled.png"
@@ -199,8 +206,8 @@ def main():
     scene: SparseGA = scene_state.sparse_ga
     scene.modify_root_path_of_canon(data_dir)
     rgbimg: List[float32_arr] = scene.imgs
-    focals = scene.get_focals().cpu()
-    cams2world = scene.get_im_poses().cpu()
+    focals: Tensor = scene.get_focals().cpu()
+    cams2world: Tensor = scene.get_im_poses().cpu()
 
     print(scene.intrinsics.shape)
     K: npt.NDArray[np.float32] = scene.intrinsics.detach().cpu().numpy()
@@ -226,7 +233,7 @@ def main():
         cams2world,
         labels,
         labels_binary,
-        save_intermediate_pc=False,
+        save_intermediate_pc=True,
     )
 
     print("finished")

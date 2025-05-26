@@ -26,6 +26,7 @@ def project_points_2d(points_3d: float32_arr, K: float32_arr) -> float32_arr:
     """
     points_2d = K @ points_3d.T
     points_2d = points_2d[:2, :] / points_2d[2, :]  # Normalize by the third coordinate
+    points_2d += 0.5
 
     return points_2d.T
 
