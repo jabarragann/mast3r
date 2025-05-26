@@ -1,15 +1,18 @@
+import json
 import sys
 from pathlib import Path
 from typing import Optional
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import trimesh
 from scipy.spatial.transform import Rotation
 import imageio.v2
 
 sys.path.append(str(Path(__file__).resolve().parent / ".."))
 import pickle
+from utils import save_pc_with_open3d
 from mast3r.cloud_opt.sparse_ga import SparseGA
 from dust3r.utils.device import to_numpy
 import open3d as o3d
@@ -23,15 +26,6 @@ OPENGL = np.array(
         [0, 0, 0, 1],
     ]
 )
-
-
-def save_pc_with_open3d(outfile: Path, pts: np.ndarray, colors: np.ndarray):
-    valid_msk = np.isfinite(pts.sum(axis=1))
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(pts[valid_msk])
-    pcd.colors = o3d.utility.Vector3dVector(colors[valid_msk])
-    # Save the point cloud to a file
-    o3d.io.write_point_cloud(str(outfile), pcd)
 
 
 def save_img(outfile: Path, img: np.ndarray):
@@ -102,7 +96,7 @@ def save_pc(
             img_mask = cv2.addWeighted(imgs[i], alpha, li, beta, 0)
             save_img(outfile_i, img_mask)
 
-    ## Origianl implementation
+    ## Original implementation
     # pts = np.concatenate([p[m.ravel()] for p, m in zip(pts3d, mask)]).reshape(-1, 3)
     # col = np.concatenate([p[m] for p, m in zip(imgs, mask)]).reshape(-1, 3)
     # valid_msk = np.isfinite(pts.sum(axis=1))
@@ -180,6 +174,11 @@ def main():
     focals = scene.get_focals().cpu()
     cams2world = scene.get_im_poses().cpu()
 
+    print(scene.intrinsics.shape)
+    K: npt.NDArray[np.float32] = scene.intrinsics.detach().cpu().numpy()
+    with data_dir.joinpath("intrinsics.json").open("w") as f:
+        json.dump({"intrinsics": K[0].tolist()}, f, indent=4)
+
     labels = None
     labels = load_labels()
 
@@ -188,7 +187,16 @@ def main():
 
     outfile = data_dir / "pc/full_reconstruction.ply"
     outfile.parent.mkdir(parents=True, exist_ok=True)
-    outfile = save_pc(outfile, rgbimg, pts3d, msk, focals, cams2world, labels, save_intermediate_pc=True)
+    outfile = save_pc(
+        outfile,
+        rgbimg,
+        pts3d,
+        msk,
+        focals,
+        cams2world,
+        labels,
+        save_intermediate_pc=False,
+    )
 
     print("finished")
 
