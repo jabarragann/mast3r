@@ -4,21 +4,22 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 import cv2
+import imageio.v2
 import numpy as np
 import numpy.typing as npt
 import torch
-from torch import Tensor
 import trimesh
 from scipy.spatial.transform import Rotation
-import imageio.v2
+from torch import Tensor
 
 sys.path.append(str(Path(__file__).resolve().parent / ".."))
 import pickle
-from utils import save_pc_with_open3d, float32_arr, uint8_arr, bool_arr
-from mast3r.cloud_opt.sparse_ga import SparseGA
-from dust3r.utils.device import to_numpy
-import open3d as o3d
 
+import open3d as o3d
+from utils import bool_arr, float32_arr, save_pc_with_open3d, uint8_arr
+
+from dust3r.utils.device import to_numpy
+from mast3r.cloud_opt.sparse_ga import SparseGA
 
 OPENGL = np.array(
     [

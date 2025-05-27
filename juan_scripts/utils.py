@@ -1,8 +1,9 @@
+from pathlib import Path
+from typing import TypeAlias
+
 import numpy as np
 import numpy.typing as npt
-from pathlib import Path
 import open3d as o3d
-from typing import TypeAlias
 
 # Stubs
 float32_arr: TypeAlias = npt.NDArray[np.float32]

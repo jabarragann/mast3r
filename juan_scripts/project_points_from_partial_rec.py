@@ -1,14 +1,13 @@
 import json
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from pathlib import Path
-from imageio.v2 import imread
 import open3d as o3d
-import matplotlib.pyplot as plt
-from utils import save_pc_with_open3d
-from utils import project_points_2d, project_points_3d, create_img_from_projected_pc
-
-
+from imageio.v2 import imread
+from utils import (create_img_from_projected_pc, project_points_2d,
+                   project_points_3d, save_pc_with_open3d)
 
 
 def main():

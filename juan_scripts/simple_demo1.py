@@ -1,12 +1,12 @@
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parent / ".."))
-from mast3r.model import AsymmetricMASt3R
-from mast3r.fast_nn import fast_reciprocal_NNs
 from dust3r.inference import inference
 from dust3r.utils.image import load_images
+from mast3r.fast_nn import fast_reciprocal_NNs
+from mast3r.model import AsymmetricMASt3R
 
 if __name__ == "__main__":
     device = "cuda"

@@ -1,14 +1,16 @@
 import json
+from pathlib import Path
 from typing import List, Tuple
+
+import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-from pathlib import Path
-from imageio.v2 import imread
 import open3d as o3d
-import matplotlib.pyplot as plt
-import cv2
-from utils import save_pc_with_open3d, float32_arr, uint8_arr, bool_arr
-from utils import project_points_2d, project_points_3d, create_img_from_projected_pc
+from imageio.v2 import imread
+from utils import (bool_arr, create_img_from_projected_pc, float32_arr,
+                   project_points_2d, project_points_3d, save_pc_with_open3d,
+                   uint8_arr)
 
 
 def load_point_cloud(path: Path) -> Tuple[float32_arr, float32_arr]:
