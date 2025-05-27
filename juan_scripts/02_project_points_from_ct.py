@@ -1,54 +1,11 @@
 import json
 from pathlib import Path
-from typing import List, Tuple
 
-import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
-import open3d as o3d
+import utils
 from imageio.v2 import imread
-from utils import (
-    bool_arr,
-    create_img_from_projected_pc,
-    float32_arr,
-    project_points_2d,
-    project_points_3d,
-    save_pc_with_open3d,
-    uint8_arr,
-)
-
-
-def load_point_cloud(path: Path) -> Tuple[float32_arr, float32_arr]:
-    pcd = o3d.io.read_point_cloud(str(path))
-    points3d, colors = (
-        np.asarray(pcd.points, dtype=np.float32),
-        np.asarray(pcd.colors, dtype=np.float32),
-    )
-
-    if colors.shape[0] == 0:  # If no colors are present, create a dummy color array
-        colors = np.ones_like(points3d, dtype=np.float32)
-
-    return points3d, colors
-
-
-def blend_image_and_mask(
-    img: uint8_arr, mask: uint8_arr, alpha: float = 0.5
-) -> uint8_arr:
-    """Blend only non-zero mask pixels with the image."""
-
-    mask_valid = np.any(mask != 0, axis=-1)
-
-    blended_img = img.copy().astype(np.float32)
-    img_32 = img.astype(np.float32)
-    mask_32 = mask.astype(np.float32)
-
-    blended_img[mask_valid] = (
-        img_32[mask_valid] * (1 - alpha) + mask_32[mask_valid] * alpha
-    )
-    blended_img_uint8 = blended_img.clip(0, 255).astype(np.uint8)
-
-    return blended_img_uint8
 
 
 def main():
@@ -68,10 +25,10 @@ def main():
 
     ct_path = data_dir / "pc/aligned_workflow2/liver_preoperative.ply"
     pc_path = data_dir / "pc/liver_intraoperative_manual_clean.ply"
-    video_points, video_colors = load_point_cloud(pc_path)
+    video_points, video_colors = utils.load_pc_with_open3d(pc_path)
     video_colors_uint8 = (video_colors * 255).astype(np.uint8)
 
-    ct_points, ct_colors = load_point_cloud(ct_path)
+    ct_points, ct_colors = utils.load_pc_with_open3d(ct_path)
     ct_colors_uint8 = (ct_colors * 255).astype(np.uint8)
 
     # Transforms
@@ -103,20 +60,20 @@ def main():
     #     combined_colors,
     # )
 
-    points_2d = project_points_2d(video_points_in_cam, K)
-    points_2d_ct = project_points_2d(ct_points_in_cam, K)
+    points_2d = utils.project_points_2d(video_points_in_cam, K)
+    points_2d_ct = utils.project_points_2d(ct_points_in_cam, K)
 
-    rgb_from_video_pc = create_img_from_projected_pc(
+    rgb_from_video_pc = utils.create_img_from_projected_pc(
         points_2d, video_colors_uint8, rgb_img.shape
     )
-    rgb_from_ct = create_img_from_projected_pc(
+    rgb_from_ct = utils.create_img_from_projected_pc(
         points_2d_ct, ct_colors_uint8, rgb_img.shape
     )
 
     # blended_img = cv2.addWeighted(rgb_img, 0.5, rgb_from_pc, 0.5, 0)
 
-    blended_ct_video = blend_image_and_mask(rgb_img, rgb_from_video_pc, alpha=0.5)
-    blended_ct_img = blend_image_and_mask(rgb_img, rgb_from_ct, alpha=0.5)
+    blended_ct_video = utils.blend_image_and_mask(rgb_img, rgb_from_video_pc, alpha=0.5)
+    blended_ct_img = utils.blend_image_and_mask(rgb_img, rgb_from_ct, alpha=0.5)
 
     fig, ax = plt.subplots(2, 3)
     ax: np.ndarray

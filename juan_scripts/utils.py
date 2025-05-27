@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TypeAlias
+from typing import Tuple, TypeAlias
 
 import numpy as np
 import numpy.typing as npt
@@ -19,6 +19,19 @@ def save_pc_with_open3d(outfile: Path, pts: float32_arr, colors: float32_arr):
     pcd.colors = o3d.utility.Vector3dVector(colors[valid_msk])
     # Save the point cloud to a file
     o3d.io.write_point_cloud(str(outfile), pcd)
+
+
+def load_pc_with_open3d(path: Path) -> Tuple[float32_arr, float32_arr]:
+    pcd = o3d.io.read_point_cloud(str(path))
+    points3d, colors = (
+        np.asarray(pcd.points, dtype=np.float32),
+        np.asarray(pcd.colors, dtype=np.float32),
+    )
+
+    if colors.shape[0] == 0:  # If no colors are present, create a dummy color array
+        colors = np.ones_like(points3d, dtype=np.float32)
+
+    return points3d, colors
 
 
 def project_points_3d(
@@ -71,3 +84,22 @@ def create_img_from_projected_pc(
     rgb_img[v, u] = colors
 
     return rgb_img
+
+
+def blend_image_and_mask(
+    img: uint8_arr, mask: uint8_arr, alpha: float = 0.5
+) -> uint8_arr:
+    """Blend only non-zero mask pixels with the image."""
+
+    mask_valid = np.any(mask != 0, axis=-1)
+
+    blended_img = img.copy().astype(np.float32)
+    img_32 = img.astype(np.float32)
+    mask_32 = mask.astype(np.float32)
+
+    blended_img[mask_valid] = (
+        img_32[mask_valid] * (1 - alpha) + mask_32[mask_valid] * alpha
+    )
+    blended_img_uint8 = blended_img.clip(0, 255).astype(np.uint8)
+
+    return blended_img_uint8
