@@ -57,7 +57,7 @@ def save_pc(
 
     all_pts: List[float32_arr] = []
     all_col: List[float32_arr] = []
-    all_labels:List[bool_arr] = []
+    all_labels: List[bool_arr] = []
 
     for i in range(len(imgs_np)):
         pi = pts3d_np[i]
@@ -206,7 +206,7 @@ def main():
 
     scene: SparseGA = scene_state.sparse_ga
     scene.modify_root_path_of_canon(data_dir)
-    rgbimg: List[float32_arr] = scene.imgs # type: ignore
+    rgbimg: List[float32_arr] = scene.imgs  # type: ignore
     focals: Tensor = scene.get_focals().cpu()
     cams2world: Tensor = scene.get_im_poses().cpu()
 
@@ -234,8 +234,11 @@ def main():
         cams2world,
         labels,
         labels_binary,
-        save_intermediate_pc=True,
+        save_intermediate_pc=False,
     )
+
+    cams2world_np: float32_arr = cams2world.detach().cpu().numpy()
+    np.save(data_dir / "pc/cams2world.npy", cams2world_np)
 
     print("finished")
 
