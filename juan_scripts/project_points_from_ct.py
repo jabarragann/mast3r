@@ -8,9 +8,15 @@ import numpy as np
 import numpy.typing as npt
 import open3d as o3d
 from imageio.v2 import imread
-from utils import (bool_arr, create_img_from_projected_pc, float32_arr,
-                   project_points_2d, project_points_3d, save_pc_with_open3d,
-                   uint8_arr)
+from utils import (
+    bool_arr,
+    create_img_from_projected_pc,
+    float32_arr,
+    project_points_2d,
+    project_points_3d,
+    save_pc_with_open3d,
+    uint8_arr,
+)
 
 
 def load_point_cloud(path: Path) -> Tuple[float32_arr, float32_arr]:
@@ -37,7 +43,9 @@ def blend_image_and_mask(
     img_32 = img.astype(np.float32)
     mask_32 = mask.astype(np.float32)
 
-    blended_img[mask_valid] = img_32[mask_valid] * (1 - alpha) + mask_32[mask_valid] * alpha
+    blended_img[mask_valid] = (
+        img_32[mask_valid] * (1 - alpha) + mask_32[mask_valid] * alpha
+    )
     blended_img_uint8 = blended_img.clip(0, 255).astype(np.uint8)
 
     return blended_img_uint8
@@ -98,7 +106,9 @@ def main():
     points_2d = project_points_2d(video_points_in_cam, K)
     points_2d_ct = project_points_2d(ct_points_in_cam, K)
 
-    rgb_from_video_pc = create_img_from_projected_pc(points_2d, video_colors_uint8, rgb_img.shape)
+    rgb_from_video_pc = create_img_from_projected_pc(
+        points_2d, video_colors_uint8, rgb_img.shape
+    )
     rgb_from_ct = create_img_from_projected_pc(
         points_2d_ct, ct_colors_uint8, rgb_img.shape
     )
@@ -109,13 +119,13 @@ def main():
     blended_ct_img = blend_image_and_mask(rgb_img, rgb_from_ct, alpha=0.5)
 
     fig, ax = plt.subplots(2, 3)
-    ax: np.ndarray 
+    ax: np.ndarray
 
-    ax[0,0].imshow(rgb_from_ct)
-    ax[1,0].imshow(rgb_from_video_pc)
-    ax[0,1].imshow(blended_ct_img)
-    ax[1,1].imshow(blended_ct_video)
-    ax[0,2].imshow(rgb_img)
+    ax[0, 0].imshow(rgb_from_ct)
+    ax[1, 0].imshow(rgb_from_video_pc)
+    ax[0, 1].imshow(blended_ct_img)
+    ax[1, 1].imshow(blended_ct_video)
+    ax[0, 2].imshow(rgb_img)
 
     [a.axis("off") for a in ax.ravel()]
     plt.tight_layout()

@@ -19,7 +19,7 @@ def main():
     img_list = list(map(str, sorted(img_path.glob("*.png"))))
 
     img_list = img_list[::4]
- 
+
     # Parameters
     optim_level = "refine+depth"
     lr1 = 0.07
@@ -33,8 +33,8 @@ def main():
     clean_depth = True
     transparent_cams = False
     cam_size = 0.2
-    scenegraph_type = "swin" #"complete"
-    winsize = 8 
+    scenegraph_type = "swin"  # "complete"
+    winsize = 8
     win_cyclic = False
     refid = 0
     TSDF_thresh = 0

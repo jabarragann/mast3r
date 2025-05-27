@@ -6,8 +6,12 @@ import numpy as np
 import numpy.typing as npt
 import open3d as o3d
 from imageio.v2 import imread
-from utils import (create_img_from_projected_pc, project_points_2d,
-                   project_points_3d, save_pc_with_open3d)
+from utils import (
+    create_img_from_projected_pc,
+    project_points_2d,
+    project_points_3d,
+    save_pc_with_open3d,
+)
 
 
 def main():
